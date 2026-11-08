@@ -1,0 +1,58 @@
+name: sec-agent
+
+services:
+  # ParadeDB = PostgreSQL + pgvector + pg_search (BM25)
+  postgres:
+    image: paradedb/paradedb:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sec}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sec}
+      POSTGRES_DB: ${POSTGRES_DB:-sec}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql   # PG 18+ layout
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/99-sec-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sec} -d ${POSTGRES_DB:-sec}"]
+      interval: 5s
+      retries: 20
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-sec-agent-pw}
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.18.0
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+      --serve-artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+
+  prefect:
+    image: prefecthq/prefect:3-latest
+    command: prefect server start --host 0.0.0.0
+    environment:
+      PREFECT_UI_API_URL: http://localhost:4200/api
+    ports:
+      - "4200:4200"
+    volumes:
+      - prefect_data:/root/.prefect
+
+volumes:
+  pg_data:
+  neo4j_data:
+  mlflow_data:
+  prefect_data:

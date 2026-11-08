@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SEC 10-K Agent</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root { --ink:#1c2430; --muted:#6b7686; --line:#dfe3e8; --accent:#0b5cad; --bg:#f7f8fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
+  form { display:flex; gap:8px; }
+  textarea { flex:1; font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:6px; resize:vertical; min-height:46px; }
+  button { font:inherit; padding:0 18px; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px 20px; margin-top:20px; }
+  .q { font-weight:600; margin-bottom:8px; }
+  .meta { color:var(--muted); font-size:12px; margin-top:12px; }
+  .src { font-size:13px; border-top:1px solid var(--line); margin-top:14px; padding-top:10px; }
+  .src div { margin:3px 0; }
+  .src code { color:var(--accent); }
+  details { font-size:12px; color:var(--muted); margin-top:8px; }
+  pre { white-space:pre-wrap; background:var(--bg); padding:8px; border-radius:4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SEC 10-K Agent</h1>
+  <p class="sub" id="companies">Loading companies…</p>
+  <form id="f">
+    <textarea id="q" placeholder="e.g. Compare Apple and Microsoft R&D spending growth in their latest fiscal year" required></textarea>
+    <button id="b">Ask</button>
+  </form>
+  <div id="out"></div>
+</main>
+<script>
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+fetch("/companies").then(r => r.json()).then(cs => {
+  document.getElementById("companies").textContent =
+    cs.length ? "Indexed: " + cs.map(c => `${c.ticker} (FY ${(c.years||[]).filter(Boolean).join(", ")})`).join(" · ")
+              : "No filings ingested yet — POST /ingest";
+});
+document.getElementById("f").onsubmit = async e => {
+  e.preventDefault();
+  const q = document.getElementById("q").value.trim(), b = document.getElementById("b");
+  b.disabled = true; b.textContent = "Thinking…";
+  const card = document.createElement("div"); card.className = "card";
+  card.innerHTML = `<div class="q">${esc(q)}</div><div class="a">Working (local model, this can take a minute)…</div>`;
+  document.getElementById("out").prepend(card);
+  try {
+    const r = await fetch("/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({question:q})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(JSON.stringify(d));
+    const srcs = d.citations.map(c => {
+      if (c.type === "filing_text") return `<div><code>[${c.id}]</code> ${c.ticker} FY${c.fiscal_year} · Item ${c.item} ${esc(c.item_title)}</div>`;
+      if (c.type === "xbrl") return `<div><code>[${c.id}]</code> ${c.ticker} ${c.metric} FY${c.fiscal_year} · XBRL ${c.concept}</div>`;
+      return `<div><code>[${c.id}]</code> graph ${esc(JSON.stringify(c.row))}</div>`;
+    }).join("");
+    const steps = d.steps.map(s => `${s.node} ${s.seconds}s`).join(" → ");
+    card.querySelector(".a").innerHTML = marked.parse(d.answer) +
+      (srcs ? `<div class="src">${srcs}</div>` : "") +
+      `<div class="meta">${steps}${d.trace_id ? ` · MLflow trace ${d.trace_id}` : ""}</div>` +
+      `<details><summary>plan</summary><pre>${esc(JSON.stringify({plan:d.plan, cypher:d.cypher, assessment:d.assessment}, null, 2))}</pre></details>`;
+  } catch (err) {
+    card.querySelector(".a").textContent = "Error: " + err.message;
+  } finally { b.disabled = false; b.textContent = "Ask"; }
+};
+</script>
+</body>
+</html>

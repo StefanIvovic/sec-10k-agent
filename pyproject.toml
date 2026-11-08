@@ -1,0 +1,29 @@
+[project]
+name = "sec-agent"
+version = "0.1.0"
+description = "Q&A agent over SEC 10-K filings: LangGraph, DSPy, LlamaIndex, Postgres (pgvector + pg_search), Neo4j, MLflow, Prefect, FastAPI"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=1.2",
+    "dspy>=3.4",
+    "llama-index-core>=0.14",
+    "llama-index-embeddings-openai-like>=0.4",
+    "mlflow==3.18.0",          # keep in sync with the MLflow server image tag
+    "prefect>=3.9,<4",
+    "fastapi",
+    "uvicorn[standard]",
+    "neo4j>=6",
+    "psycopg[binary,pool]>=3.3",
+    "pgvector>=0.5",
+    "pydantic-settings",
+    "httpx",
+    "beautifulsoup4",
+    "lxml",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
