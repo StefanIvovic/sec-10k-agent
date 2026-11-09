@@ -38,14 +38,19 @@ class HybridPgRetriever(BaseRetriever):
 
 
 def search_filings(queries: Sequence[str], tickers=None, years=None, items=None, k: int | None = None) -> list[dict]:
-    """Run each query, merge results by chunk id. If an item filter finds nothing, retry without it."""
+    """Run each query, merge results by chunk id (best fused score wins).
+
+    The planner's 10-K item guess is a soft preference, not a hard filter: each query runs once with
+    the item filter and once without, and both result lists are merged. The retrieval eval showed the
+    hard filter caused all agent misses (e.g. 'customer concentration' guessed as Item 1/8, answer in 1A).
+    """
     k = k or get_settings().retrieve_k
     tickers = tickers or None
     found: dict[int, dict] = {}
     for q in queries:
-        nodes = HybridPgRetriever(k, tickers, years or None, items or None).retrieve(q)
-        if not nodes and items:
-            nodes = HybridPgRetriever(k, tickers, years or None, None).retrieve(q)
+        nodes = HybridPgRetriever(k, tickers, years or None, None).retrieve(q)
+        if items:
+            nodes += HybridPgRetriever(k, tickers, years or None, items).retrieve(q)
         for n in nodes:
             m = n.node.metadata
             cur = found.get(m["chunk_id"])

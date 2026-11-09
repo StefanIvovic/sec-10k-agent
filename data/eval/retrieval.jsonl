@@ -1,0 +1,20 @@
+{"question": "What are Apple's reportable segments?", "ticker": "AAPL", "gold": ["reportable segments consist of the Americas"], "gold_item": "1"}
+{"question": "Where are Apple's manufacturing outsourcing partners located?", "ticker": "AAPL", "gold": ["outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam"], "gold_item": "1A"}
+{"question": "How many employees did Apple have at the end of fiscal 2026?", "ticker": "AAPL", "gold": ["approximately 167,000 full-time equivalent employees"], "gold_item": "1"}
+{"question": "Why did Apple's products gross margin increase in 2026?", "ticker": "AAPL", "gold": ["primarily due to product mix and tariff refunds"], "gold_item": "7"}
+{"question": "What drove the increase in Apple's Services net sales?", "ticker": "AAPL", "gold": ["higher net sales from advertising and cloud services"], "gold_item": "7"}
+{"question": "Who is responsible for managing cybersecurity risk at Apple?", "ticker": "AAPL", "gold": ["led by its Head of Corporate Information Security"], "gold_item": "1C"}
+{"question": "What risk does Apple describe if tariffs are rescinded?", "ticker": "AAPL", "gold": ["may not be able to successfully claim and collect tariff refunds"], "gold_item": "1A"}
+{"question": "Who presents cybersecurity topics to Microsoft's Board of Directors?", "ticker": "MSFT", "gold": ["Presentations to the Board of Directors are made by senior management"], "gold_item": "1C"}
+{"question": "Which reportable segments does Microsoft use?", "ticker": "MSFT", "gold": ["based on the following three segments: Productivity and Business Processes"], "gold_item": "7"}
+{"question": "How much did Microsoft's Azure and other cloud services revenue grow?", "ticker": "MSFT", "gold": ["Azure and other cloud services revenue grew 41%"], "gold_item": "7"}
+{"question": "How many people did Microsoft employ as of June 30, 2026?", "ticker": "MSFT", "gold": ["we employed approximately 223,000 people"], "gold_item": "1"}
+{"question": "What does Microsoft say about its relationship with OpenAI?", "ticker": "MSFT", "gold": ["long-term strategic partnership with OpenAI"], "gold_item": "1A"}
+{"question": "Which large acquisition does Microsoft cite in its risk factors?", "ticker": "MSFT", "gold": ["completed our acquisition of Activision Blizzard"], "gold_item": "1A"}
+{"question": "What are NVIDIA's operating segments?", "ticker": "NVDA", "gold": ["Our two operating segments are", "We report our business results in two segments"], "gold_item": "7"}
+{"question": "How many employees does NVIDIA have and how many work in R&D?", "ticker": "NVDA", "gold": ["approximately 42,000 employees in 38 countries"], "gold_item": "1"}
+{"question": "Which foundries does NVIDIA use to produce its wafers?", "ticker": "NVDA", "gold": ["Taiwan Semiconductor Manufacturing Company Limited, or TSMC"], "gold_item": "1"}
+{"question": "How concentrated is NVIDIA's revenue among direct customers?", "ticker": "NVDA", "gold": ["sales to one direct customer represented 22% of total revenue"], "gold_item": "1A"}
+{"question": "How have export controls affected NVIDIA?", "ticker": "NVDA", "gold": ["shifting and expanding export control restrictions", "where our offerings are limited by export controls"], "gold_item": "1"}
+{"question": "What drove NVIDIA's increase in research and development expenses?", "ticker": "NVDA", "gold": ["compensation and benefits expenses due to employee growth and compute and infrastructure costs"], "gold_item": "7"}
+{"question": "How many registered shareholders does NVIDIA have?", "ticker": "NVDA", "gold": ["approximately 1,226 registered shareholders"], "gold_item": "5"}

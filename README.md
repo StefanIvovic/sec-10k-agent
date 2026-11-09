@@ -91,7 +91,14 @@ python -m sec_agent.eval.dataset                     # numeric gold from XBRL + 
 python -m sec_agent.eval.run_eval --run-name baseline
 python -m sec_agent.eval.optimize --train 12         # writes artifacts/compiled_program.json
 python -m sec_agent.eval.run_eval --run-name optimized
+python -m sec_agent.eval.retrieval_eval --agent      # retrieval only: is the answer chunk found, how high?
 ```
+
+**Retrieval eval** (`data/eval/retrieval.jsonl`, 20 questions): the answer key is a ticker plus a distinctive phrase
+from the filing, not a chunk ID, so it survives re-ingestion. The script refuses to run if a phrase no longer matches any chunk.
+It reports hit@1/3/k and MRR for the hybrid search, BM25 alone, vector alone, no company filter, and
+(`--agent`) the planner's real queries and filters, including whether the answer chunk reaches the answer prompt.
+Without `--agent` it needs no LLM and runs in seconds.
 
 `/ingest` calls the Prefect deployment when `--serve` is running; otherwise it runs the flow in a background thread.
 Either way, runs appear in the Prefect UI.
