@@ -36,12 +36,31 @@ def has_citation(answer: str) -> float:
     return 1.0 if re.search(r"\[[SFG]\d+", answer) else 0.0
 
 
-def score(example: dict, answer: str) -> dict:
+ANSWERABLE_KINDS = {"numeric", "keywords", "open", "answerable"}
+
+from ..agent.tools import says_not_in_sources as declines  # same detector finalize uses
+
+
+def score(example: dict, answer: str, status: str = "answered") -> dict:
+    """correct: 0-1 or None (not scored). refused: the user got the not-found message.
+
+    unanswerable  pass = refused, or the answer says the filings don't contain it
+    false_premise pass = refused, or the answer corrects the premise (e.g. says revenue increased)
+    answerable    a refusal is a failure (false refusal) regardless of the content check
+    """
     kind = example["kind"]
-    if kind == "numeric":
+    refused = status == "not_found"
+    if kind == "unanswerable":
+        correct = 1.0 if (refused or declines(answer)) else 0.0
+    elif kind == "false_premise":
+        correct = 1.0 if (refused or any(k in answer.lower() for k in example["expected"])) else 0.0
+    elif refused:
+        correct = 0.0 if kind in ("numeric", "keywords") else None
+    elif kind == "numeric":
         correct = numeric_match(answer, float(example["expected"]))
     elif kind == "keywords":
         correct = keyword_recall(answer, example["expected"])
     else:
-        correct = None  # judged separately
-    return {"correct": correct, "cited": has_citation(answer)}
+        correct = None  # open / answerable: status-only
+    return {"correct": correct, "cited": has_citation(answer), "refused": float(refused),
+            "false_refusal": float(refused and kind in ANSWERABLE_KINDS)}

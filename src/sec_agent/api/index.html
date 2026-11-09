@@ -24,6 +24,10 @@
   .src code { color:var(--accent); }
   details { font-size:12px; color:var(--muted); margin-top:8px; }
   pre { white-space:pre-wrap; background:var(--bg); padding:8px; border-radius:4px; }
+  .status { display:inline-block; font-size:11px; padding:1px 7px; border-radius:10px; margin-bottom:8px; }
+  .status.not_found { background:#fdecea; color:#a32018; }
+  .status.partial { background:#fff4e0; color:#8a5a00; }
+  .status.answered { background:#e8f3ec; color:#1e6b3a; }
 </style>
 </head>
 <body>
@@ -60,7 +64,8 @@ document.getElementById("f").onsubmit = async e => {
       return `<div><code>[${c.id}]</code> graph ${esc(JSON.stringify(c.row))}</div>`;
     }).join("");
     const steps = d.steps.map(s => `${s.node} ${s.seconds}s`).join(" → ");
-    card.querySelector(".a").innerHTML = marked.parse(d.answer) +
+    const label = {answered: "answered", partial: "partly answered", not_found: "not found in filings"}[d.status] || d.status;
+    card.querySelector(".a").innerHTML = `<span class="status ${d.status}">${label}</span>` + marked.parse(d.answer) +
       (srcs ? `<div class="src">${srcs}</div>` : "") +
       `<div class="meta">${steps}${d.trace_id ? ` · MLflow trace ${d.trace_id}` : ""}</div>` +
       `<details><summary>plan</summary><pre>${esc(JSON.stringify({plan:d.plan, cypher:d.cypher, assessment:d.assessment}, null, 2))}</pre></details>`;

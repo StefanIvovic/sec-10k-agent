@@ -1,0 +1,11 @@
+{"question": "What is Apple's revenue in Brazil?", "kind": "unanswerable", "expected": null, "why": "Brazil is not mentioned in Apple's FY2026 10-K"}
+{"question": "What is Apple's market share in smartphones?", "kind": "keywords", "expected": ["minority market share"], "why": "no percentage, but Item 1/1A say 'minority market share in the global smartphone ... markets'"}
+{"question": "What was NVIDIA's CEO base salary in fiscal 2026?", "kind": "unanswerable", "expected": null, "why": "Item 11 defers executive compensation to the 2026 proxy statement"}
+{"question": "How many employees does Amazon have?", "kind": "unanswerable", "expected": null, "why": "Amazon is not ingested (only named as an NVIDIA competitor)"}
+{"question": "Does NVIDIA have an office in Serbia?", "kind": "unanswerable", "expected": null, "why": "Serbia/Belgrade not mentioned in NVIDIA's 10-K"}
+{"question": "What revenue does Apple forecast for fiscal 2030?", "kind": "unanswerable", "expected": null, "why": "no forecast; 2030 appears only in lease and debt maturity schedules (trap)"}
+{"question": "How many employees did NVIDIA lay off in fiscal 2026?", "kind": "unanswerable", "expected": null, "why": "no layoff / workforce reduction mentions"}
+{"question": "What was Microsoft's total revenue in fiscal 2027?", "kind": "unanswerable", "expected": null, "why": "only FY2026 and earlier are filed"}
+{"question": "Why did Apple's revenue decline in fiscal 2026?", "kind": "false_premise", "expected": ["increase", "increased", "grew", "growth", "rose", "higher"], "why": "revenue grew from $416.2B to $478.8B (XBRL)"}
+{"question": "What caused Microsoft's net income to fall in fiscal 2026?", "kind": "false_premise", "expected": ["increase", "increased", "grew", "growth", "rose", "higher"], "why": "net income grew from $101.8B to $133.7B (XBRL)"}
+{"question": "Why did NVIDIA cut its research and development spending in fiscal 2026?", "kind": "false_premise", "expected": ["increase", "increased", "grew", "growth", "rose", "higher"], "why": "R&D grew 43% (XBRL)"}

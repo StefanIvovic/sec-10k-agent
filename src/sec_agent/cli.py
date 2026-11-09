@@ -23,6 +23,7 @@ def main() -> None:
     if a.json:
         json.dump(res, sys.stdout, indent=2, default=str)
         return
+    print(f"[{res['status']}]")
     print(res["answer"], "\n")
     print("Sources:")
     for c in res["citations"]:

@@ -58,17 +58,26 @@ class AnswerQuestion(dspy.Signature):
 
 
 class AssessAnswer(dspy.Signature):
-    """Check a draft answer against its sources. 'grounded' is false if any claim is not supported by
-    the sources. 'complete' is false if part of the question is unanswered. If incomplete, propose
-    search queries that would find the missing information in the 10-K text."""
+    """Check a draft answer against its sources, claim by claim.
+
+    - 'grounded' is false if ANY factual claim is not supported by the cited sources. A claim about a
+      company must be supported by a source for THAT company (a Microsoft excerpt does not support a
+      claim about Apple). Numbers must match the sources. A statement that the sources do not contain
+      some information is grounded.
+    - 'complete' is false if part of the question is unanswered.
+    - 'answer_found' is false if the sources contain no information that answers the question at all
+      (e.g. the answer only says the information is not available).
+    - If not grounded or not complete, propose search queries that would find the missing or
+      unsupported information in the 10-K text, naming the company."""
 
     question: str = dspy.InputField()
     sources: str = dspy.InputField()
     answer: str = dspy.InputField()
     grounded: bool = dspy.OutputField()
     complete: bool = dspy.OutputField()
+    answer_found: bool = dspy.OutputField()
     missing: str = dspy.OutputField(desc="what is missing or unsupported; empty if nothing")
-    follow_up_queries: list[str] = dspy.OutputField(desc="0-2 search queries; [] if complete")
+    follow_up_queries: list[str] = dspy.OutputField(desc="1-2 search queries if not grounded or not complete; else []")
 
 
 class SecQAProgram(dspy.Module):

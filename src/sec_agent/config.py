@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     llm_reasoning_effort: str = "none"   # "none" disables qwen thinking; "" = model default
     llm_serialize: bool = False          # one LM Studio call at a time; fallback if the embed model can't be pinned
     embed_autoload: bool = True          # explicitly load the embedding model at startup if missing
-    embed_gpu_offload: str = "max"       # lms --gpu: "max" (GPU), "off" (CPU) or 0-1
-    embed_context: int = 2048            # chunks are < ~900 tokens; small context = small VRAM buffer
+    embed_gpu_offload: str = "off"       # lms --gpu: "off" (CPU), "max" (GPU) or 0-1
+    embed_context: int = 2048            # chunks < ~900 tokens. Sets VRAM use even on CPU: 8192 -> ~5 GB, 2048 -> ~0.7 GB
     embed_model: str = "text-embedding-bge-m3"
     embed_dim: int = 1024
 

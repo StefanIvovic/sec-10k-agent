@@ -162,5 +162,24 @@ def describe_companies() -> str:
     return "\n".join(f"{r['ticker']}: {r['name']} (FY {', '.join(map(str, r['years'] or []))})" for r in rows) or "(none)"
 
 
+# the answer itself says the filings don't contain the requested information
+_SRC = r"(provided |available |given )?(sources?|filings?|10-?Ks?|documents?|excerpts?|text|data)"
+_NOT_IN_SOURCES = re.compile(
+    rf"{_SRC} (do(es)? not|don't|did not) (contain|include|provide|specify|disclose|mention|state|report|list|identify)"
+    rf"|not (mentioned|disclosed|provided|specified|stated|reported|listed|found) in (the |any )?{_SRC}"
+    r"|\bno (specific )?(mention|information|data|disclosure)s? (of|about|on|regarding)\b"
+    r"|\b(couldn't|could not|cannot|can't|unable to) find\b|not giving an answer",
+    re.I)
+
+
+def says_not_in_sources(text: str) -> bool:
+    return bool(_NOT_IN_SOURCES.search(re.sub(r"[*_`]", "", text)))  # "**no mention** of" -> "no mention of"
+
+
+def describe_companies_short() -> str:
+    rows = pg.list_companies()
+    return ", ".join(f"{r['ticker']} FY{'/'.join(map(str, [y for y in r['years'] or [] if y]))}" for r in rows) or "none"
+
+
 def describe_metrics() -> str:
     return ", ".join(METRICS)
