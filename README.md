@@ -86,19 +86,21 @@ uvicorn sec_agent.api.main:app --port 8000          # UI at http://localhost:800
 curl -X POST localhost:8000/ask -H "Content-Type: application/json" -d '{"question":"Compare Apple and Microsoft R&D growth"}'
 curl -X POST localhost:8000/ingest -H "Content-Type: application/json" -d '{"tickers":["AMZN"],"n_filings":1}'
 
-# 3. evaluate and optimize (results in MLflow at http://localhost:5000)
-python -m sec_agent.eval.dataset                     # numeric gold from XBRL + data/eval/curated.jsonl
-python -m sec_agent.eval.run_eval --run-name baseline
-python -m sec_agent.eval.optimize --train 12         # writes artifacts/compiled_program.json
-python -m sec_agent.eval.run_eval --run-name optimized
-python -m sec_agent.eval.retrieval_eval --agent      # retrieval only: is the answer chunk found, how high?
+# 3. evaluate (results in MLflow at http://localhost:5000)
+python -m sec_agent.eval.run --split dev             # data/eval/dev.jsonl
+python -m sec_agent.eval.run --split test            # held out: report only
+python -m sec_agent.eval.optimize --train 12         # DSPy few-shot on dev; writes artifacts/compiled_program.json
 ```
 
-**Retrieval eval** (`data/eval/retrieval.jsonl`, 20 questions): the answer key is a ticker plus a distinctive phrase
-from the filing, not a chunk ID, so it survives re-ingestion. The script refuses to run if a phrase no longer matches any chunk.
-It reports hit@1/3/k and MRR for the hybrid search, BM25 alone, vector alone, no company filter, and
-(`--agent`) the planner's real queries and filters, including whether the answer chunk reaches the answer prompt.
-Without `--agent` it needs no LLM and runs in seconds.
+**Evals** live in two files, `data/eval/dev.jsonl` and `data/eval/test.jsonl`, one line per question.
+Each line says what the agent should do (`answer`, `not_found` or `correction`), plus optional checks:
+a number, phrases the answer must contain, and a source phrase the search must find.
+`python -m sec_agent.eval.run` asks every question once (`not_found` / `correction` 3 times) and runs all checks
+on that answer. See [data/eval/README.md](data/eval/README.md) for the format and metrics.
+
+Debugging tools: `python -m sec_agent.eval.retrieval_eval [--agent]` compares search methods (hybrid, BM25, vector,
+the planner's queries) on the questions that have a `source`. `python -m sec_agent.eval.unanswered` lists real user
+questions the agent couldn't answer (MLflow traces tagged `answer_status`).
 
 `/ingest` calls the Prefect deployment when `--serve` is running; otherwise it runs the flow in a background thread.
 Either way, runs appear in the Prefect UI.

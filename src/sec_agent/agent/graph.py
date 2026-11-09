@@ -236,10 +236,19 @@ def cited_sources(answer: str, cmap: dict) -> list[dict]:
     return [{"id": i, **cmap[i]} for i in ids if i in cmap]
 
 
-def ask(question: str, tickers: list[str] | None = None, fiscal_years: list[int] | None = None) -> dict[str, Any]:
+def ask(question: str, tickers: list[str] | None = None, fiscal_years: list[int] | None = None,
+        include_chunks: bool = False) -> dict[str, Any]:
+    """include_chunks: also return the filing paragraphs the answer step saw (for evals)."""
     state = get_agent().invoke({"question": question, "tickers": tickers or [], "fiscal_years": fiscal_years or []})
     status = state.get("status", "answered")
-    return {
+    extra = {}
+    if include_chunks:
+        by_id = {h["chunk_id"]: h for h in state.get("hits", [])}
+        extra["chunks"] = [{"ticker": by_id[c["chunk_id"]]["ticker"], "item": by_id[c["chunk_id"]]["item"],
+                            "content": by_id[c["chunk_id"]]["content"]}
+                           for c in (state.get("citation_map") or {}).values()
+                           if c["type"] == "filing_text" and c["chunk_id"] in by_id]
+    return {**extra,
         "question": question,
         "status": status,   # answered | partial | not_found
         "answer": state.get("answer", ""),

@@ -20,8 +20,8 @@ from ..agent.signatures import SecQAProgram
 from ..config import get_settings
 from ..llm import configure_dspy
 from ..tracing import init_mlflow
-from . import dataset
-from .metrics import has_citation, keyword_recall, numeric_match
+from . import cases
+from .metrics import check, has_citation
 
 
 class LinearQA(dspy.Module):
@@ -42,12 +42,8 @@ class LinearQA(dspy.Module):
 
 def metric(example: dspy.Example, pred: dspy.Prediction, trace=None) -> float:
     ans = pred.answer or ""
-    if example.kind == "numeric":
-        correct = numeric_match(ans, float(example.expected))
-    elif example.kind == "keywords":
-        correct = keyword_recall(ans, example.expected)
-    else:
-        correct = 0.5
+    row = {k: getattr(example, k) for k in ("expect", "number", "contains") if k in example}
+    correct = float(check(row, ans, "answered")[0])
     score = 0.8 * correct + 0.2 * has_citation(ans)
     return score >= 0.9 if trace is not None else score  # strict when bootstrapping demos
 
@@ -61,7 +57,9 @@ def main() -> None:
     init_mlflow()
     configure_dspy()
     s = get_settings()
-    rows = [r for r in dataset.load() if r["kind"] in ("numeric", "keywords")]
+    # dev only (never test); questions with a checkable answer
+    rows = [{k: v for k, v in r.items() if k in ("question", "expect", "number", "contains")}
+            for r in cases.load("dev") if r["expect"] == "answer" and ("number" in r or r.get("contains"))]
     random.Random(0).shuffle(rows)
     examples = [dspy.Example(**r).with_inputs("question") for r in rows]
     train, dev = examples[: a.train], examples[a.train:]

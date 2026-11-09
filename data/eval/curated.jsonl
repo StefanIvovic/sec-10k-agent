@@ -1,8 +1,0 @@
-{"question": "What are Apple's reportable segments?", "kind": "keywords", "expected": ["Americas", "Europe", "Greater China", "Japan", "Rest of Asia Pacific"], "ticker": "AAPL", "source": "AAPL FY2026 Item 1 / Item 8"}
-{"question": "Which reportable segments does Microsoft use to report its financial performance?", "kind": "keywords", "expected": ["Productivity and Business Processes", "Intelligent Cloud", "More Personal Computing"], "ticker": "MSFT", "source": "MSFT FY2026 Item 7"}
-{"question": "Who presents cybersecurity topics to Microsoft's Board of Directors?", "kind": "keywords", "expected": ["Chief Information Security Officer", "Microsoft Security"], "ticker": "MSFT", "source": "MSFT FY2026 Item 1C"}
-{"question": "How much did Apple spend on share repurchases in fiscal 2026?", "kind": "numeric", "expected": 86390000000, "ticker": "AAPL", "source": "XBRL PaymentsForRepurchaseOfCommonStock"}
-{"question": "How much did Microsoft pay in dividends in fiscal year 2026?", "kind": "numeric", "expected": 26445000000, "ticker": "MSFT", "source": "XBRL PaymentsOfDividends"}
-{"question": "What are the main supply chain risks Apple describes in its latest 10-K?", "kind": "open", "expected": null, "ticker": "AAPL"}
-{"question": "How did Microsoft's Intelligent Cloud segment perform in fiscal 2026 and what drove it?", "kind": "open", "expected": null, "ticker": "MSFT"}
-{"question": "Which risk factors do Apple and Microsoft both disclose?", "kind": "open", "expected": null, "ticker": "AAPL,MSFT"}

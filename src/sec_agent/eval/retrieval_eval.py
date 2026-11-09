@@ -1,6 +1,6 @@
 """Retrieval eval: does the chunk that holds the answer get retrieved, and how high?
 
-Gold = ticker + a distinctive phrase from the filing (data/eval/retrieval.jsonl), not a chunk id,
+Gold = ticker + the 'source' phrase(s) of the questions in data/eval/<split>.jsonl, not a chunk id,
 so the set survives re-ingestion. Any chunk of that ticker containing a gold phrase counts as a hit
 (chunk overlap means a phrase can sit in two neighbouring chunks).
 
@@ -11,13 +11,12 @@ Modes
   agent     the planner's queries + filters, exactly as the agent runs them (LLM calls),
             plus whether the gold chunk survives the answer step's prompt budget
 
-python -m sec_agent.eval.retrieval_eval [--agent] [--k 8] [--run-name retrieval]
+python -m sec_agent.eval.retrieval_eval [--agent] [--k 8] [--split dev|test] [--run-name retrieval]
+  Debugging tool: compares search methods. The normal eval (eval/run.py) already reports source_found_rate.
 """
 from __future__ import annotations
 
 import argparse
-import json
-from pathlib import Path
 
 import mlflow
 import numpy as np
@@ -28,13 +27,15 @@ from ..config import get_settings
 from ..db import postgres as pg
 from ..llm import embed_query, ensure_embed_model_loaded
 from ..tracing import init_mlflow
+from . import cases
 
-GOLD = Path("data/eval/retrieval.jsonl")
 DEPTH = 50  # ranks beyond this count as "not found"
 
 
-def load() -> list[dict]:
-    return [json.loads(l) for l in GOLD.read_text(encoding="utf-8").splitlines() if l.strip()]
+def load(split: str = "dev") -> list[dict]:
+    """Questions with a 'source' phrase, as {question, ticker, gold, gold_item}."""
+    return [{"question": r["question"], "ticker": r["ticker"], "gold": r["source"], "gold_item": r.get("source_item", "")}
+            for r in cases.load(split) if r.get("source") and r["expect"] == "answer"]
 
 
 def is_gold(ex: dict, ticker: str, content: str) -> bool:
@@ -105,15 +106,18 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--k", type=int, default=get_settings().retrieve_k)
     ap.add_argument("--agent", action="store_true", help="also run the planner (LLM) mode")
+    ap.add_argument("--split", choices=["dev", "test"], default="dev")
     ap.add_argument("--run-name", default="retrieval")
     a = ap.parse_args()
 
+    gold_file = cases.path(a.split)
+    examples = load(a.split)
     ensure_embed_model_loaded()
     init_mlflow()
-    examples = load()
     missing = [e["question"] for e in examples if gold_chunks_exist(e) == 0]
     if missing:
-        raise SystemExit(f"gold phrase not found in any chunk (re-ingested? update {GOLD}):\n  " + "\n  ".join(missing))
+        raise SystemExit(f"gold phrase not found in any chunk (re-ingested? typo? update {gold_file}):\n  "
+                         + "\n  ".join(missing))
 
     program = None
     if a.agent:
@@ -136,7 +140,7 @@ def main() -> None:
             r["agent_in_prompt"] = r["agent"] is not None and r["agent"] <= in_prompt
             r["plan_items"] = ",".join(plan["items"])
             r["plan_tickers"] = ",".join(plan["tickers"])
-            r["item_filter_excludes_gold"] = bool(plan["items"]) and ex["gold_item"] not in plan["items"]
+            r["item_filter_excludes_gold"] = bool(plan["items"]) and bool(ex["gold_item"]) and ex["gold_item"] not in plan["items"]
         rows.append(r)
         print(f"{t:5} raw={r['raw']} nofilter={r['nofilter']} bm25={r['bm25']} vector={r['vector']}"
               + (f" agent={r['agent']} in_prompt={r['agent_in_prompt']} items={r['plan_items']}" if program else "")
@@ -152,8 +156,8 @@ def main() -> None:
         metrics["agent_in_prompt_rate"] = df["agent_in_prompt"].mean()
         metrics["item_filter_excludes_gold_rate"] = df["item_filter_excludes_gold"].mean()
 
-    with mlflow.start_run(run_name=a.run_name):
-        mlflow.log_params({"k": a.k, "n_questions": len(df), "embed_model": get_settings().embed_model,
+    with mlflow.start_run(run_name=a.run_name, tags={"split": a.split}):
+        mlflow.log_params({"split": a.split, "k": a.k, "n_questions": len(df), "embed_model": get_settings().embed_model,
                            "chunk_size": get_settings().chunk_size, "agent_mode": bool(program)})
         mlflow.log_metrics({k: float(v) for k, v in metrics.items()})
         mlflow.log_table(df.astype({c: "object" for c in modes}), "retrieval_results.json")

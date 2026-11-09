@@ -1,22 +1,19 @@
-"""Build the evaluation set.
+"""Print number questions from the XBRL facts in Postgres, as eval lines you can copy into dev/test.jsonl.
 
-* numeric  – generated from XBRL facts in Postgres (gold = reported value)
-* keywords – curated in data/eval/curated.jsonl (gold = phrases that must appear)
-* open     – curated questions without gold, scored by the LLM judge (grounded + complete)
+python -m sec_agent.eval.dataset                 # latest fiscal year per company
+python -m sec_agent.eval.dataset --year 2025     # a given fiscal year
 
-python -m sec_agent.eval.dataset   -> writes data/eval/questions.jsonl
+Lines already in dev.jsonl or test.jsonl are skipped. Nothing is written: copy the lines you want.
 """
 from __future__ import annotations
 
+import argparse
 import json
-from pathlib import Path
 
 from ..db import postgres as pg
+from . import cases
 
-OUT = Path("data/eval/questions.jsonl")
-CURATED = Path("data/eval/curated.jsonl")
-
-NUMERIC_TEMPLATES = {
+TEMPLATES = {
     "revenue": "What was {name}'s total revenue in fiscal year {fy}?",
     "net_income": "How much net income did {name} report for fiscal {fy}?",
     "research_and_development": "What did {name} spend on research and development in fiscal {fy}?",
@@ -25,37 +22,25 @@ NUMERIC_TEMPLATES = {
 }
 
 
-def numeric_examples() -> list[dict]:
-    out = []
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--year", type=int)
+    a = ap.parse_args()
+    existing = {cases.norm(json.loads(l)["question"]) for split in ("dev", "test") if cases.path(split).exists()
+                for l in cases.path(split).read_text(encoding="utf-8").splitlines() if l.strip()}
     with pg.conn() as c:
-        companies = c.execute("SELECT ticker, name FROM companies").fetchall()
-        for co in companies:
-            fy = c.execute("SELECT max(fiscal_year) AS fy FROM filings f JOIN companies c USING (cik) WHERE c.ticker=%s",
-                           (co["ticker"],)).fetchone()["fy"]
-            for metric, tmpl in NUMERIC_TEMPLATES.items():
-                row = c.execute("SELECT value::float AS v FROM financial_facts WHERE ticker=%s AND metric=%s AND fiscal_year=%s",
-                                (co["ticker"], metric, fy)).fetchone()
-                if row:
-                    out.append({"question": tmpl.format(name=co["name"].title() if co["name"].isupper() else co["name"], fy=fy),
-                                "kind": "numeric", "expected": row["v"], "ticker": co["ticker"], "metric": metric})
-    return out
-
-
-def build() -> list[dict]:
-    rows = numeric_examples()
-    if CURATED.exists():
-        rows += [json.loads(l) for l in CURATED.read_text(encoding="utf-8").splitlines() if l.strip()]
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
-    return rows
-
-
-def load() -> list[dict]:
-    return [json.loads(l) for l in OUT.read_text(encoding="utf-8").splitlines() if l.strip()]
+        for co in c.execute("SELECT ticker, name FROM companies ORDER BY ticker").fetchall():
+            fy = a.year or c.execute("SELECT max(fiscal_year) AS fy FROM filings f JOIN companies c USING (cik) "
+                                     "WHERE c.ticker=%s", (co["ticker"],)).fetchone()["fy"]
+            name = co["name"].title() if co["name"].isupper() else co["name"]
+            for metric, tmpl in TEMPLATES.items():
+                row = c.execute("SELECT value::float AS v FROM financial_facts WHERE ticker=%s AND metric=%s "
+                                "AND fiscal_year=%s", (co["ticker"], metric, fy)).fetchone()
+                q = tmpl.format(name=name, fy=fy)
+                if row and cases.norm(q) not in existing:
+                    print(json.dumps({"question": q, "ticker": co["ticker"], "expect": "answer", "number": row["v"],
+                                      "why": f"XBRL {metric} FY{fy}"}))
 
 
 if __name__ == "__main__":
-    rows = build()
-    print(f"wrote {len(rows)} examples to {OUT}: "
-          f"{sum(r['kind'] == 'numeric' for r in rows)} numeric, "
-          f"{sum(r['kind'] == 'keywords' for r in rows)} keywords, {sum(r['kind'] == 'open' for r in rows)} open")
+    main()
