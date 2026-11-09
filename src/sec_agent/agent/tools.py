@@ -168,7 +168,10 @@ _NOT_IN_SOURCES = re.compile(
     rf"{_SRC} (do(es)? not|don't|did not) (contain|include|provide|specify|disclose|mention|state|report|list|identify)"
     rf"|not (mentioned|disclosed|provided|specified|stated|reported|listed|found) in (the |any )?{_SRC}"
     r"|\bno (specific )?(mention|information|data|disclosure)s? (of|about|on|regarding)\b"
-    r"|\b(couldn't|could not|cannot|can't|unable to) find\b|not giving an answer",
+    r"|\b(couldn't|could not|cannot|can't|unable to) find\b|not giving an answer"
+    # the company itself doesn't disclose it: "Apple does not report revenue from Brazil as a separate figure"
+    r"|\b(does not|doesn't|did not|do not) (separately |individually |specifically )?"
+    r"(report|disclose|break out|break down|quantify)\b",
     re.I)
 
 
