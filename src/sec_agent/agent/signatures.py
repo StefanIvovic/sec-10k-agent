@@ -19,7 +19,8 @@ class AnalyzeQuestion(dspy.Signature):
     """
 
     question: str = dspy.InputField()
-    available_companies: str = dspy.InputField(desc="ingested companies: ticker, name, fiscal years")
+    available_companies: str = dspy.InputField(desc="ingested companies: ticker, name, fiscal years, segments, products; "
+                                                    "a question naming only a segment or product is about that company")
     available_metrics: str = dspy.InputField(desc="metric keys available as structured XBRL data")
     tickers: list[str] = dspy.OutputField(desc="tickers the question is about (map names to tickers); [] means all companies")
     fiscal_years: list[int] = dspy.OutputField(desc="fiscal years explicitly asked about; [] if none stated")
@@ -50,7 +51,11 @@ class AnswerQuestion(dspy.Signature):
     Cite every claim with its source id in square brackets, e.g. [S2] or [F1]. Prefer structured
     financial data [F#] for numbers; state fiscal years and units explicitly; compute changes and
     ratios step by step from the cited numbers. If the sources do not contain the answer, say what is
-    missing instead of guessing. Be concise: a direct answer first, then supporting detail."""
+    missing instead of guessing. If the question asks for an exact figure (a specific date, unit or
+    scope) and the sources only give an approximate or differently scoped one (e.g. "approximately
+    150,000 employees" when asked for the exact headcount on a given day), first say that the sources do not state the exact figure,
+    then give the closest figure with its wording and citation.
+    Be concise: a direct answer first, then supporting detail."""
 
     question: str = dspy.InputField()
     sources: str = dspy.InputField(desc="numbered excerpts: [S#] filing text, [F#] XBRL financial data, [G#] knowledge graph rows")
@@ -66,7 +71,9 @@ class AssessAnswer(dspy.Signature):
       some information is grounded.
     - 'complete' is false if part of the question is unanswered.
     - 'answer_found' is false if the sources contain no information that answers the question at all
-      (e.g. the answer only says the information is not available).
+      (e.g. the answer only says the information is not available). It is true if the answer says the
+      exact figure is not stated but gives a related figure or explanation from the sources (an
+      approximate number, or how the company reports it instead); 'complete' is then false.
     - If not grounded or not complete, propose search queries that would find the missing or
       unsupported information in the 10-K text, naming the company."""
 

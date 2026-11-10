@@ -170,7 +170,8 @@ def build_graph(program: SecQAProgram | None = None):
         has_sources = bool(state.get("hits") or state.get("facts") or state.get("graph_rows"))
         draft = state.get("answer", "")
         # the sentence where the draft says the filings lack something (e.g. "no mention of an office in Serbia")
-        not_in_src = tools.not_in_sources_match(draft)
+        # (opening paragraph only: a hedge deeper in an otherwise full answer doesn't make it partial)
+        not_in_src = tools.lead_not_in_sources_match(draft)
         if not has_sources or not a["grounded"] or not a["answer_found"]:
             status, final = "not_found", NOT_FOUND_MESSAGE + f"\n\nIndexed filings: {tools.describe_companies_short()}"
             reasons = [r for r, hit in (("no_sources", not has_sources), ("not_grounded", not a["grounded"]),

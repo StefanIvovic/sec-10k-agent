@@ -158,8 +158,31 @@ def normalize_plan(p, question: str, known_companies: str) -> dict:
 
 
 def describe_companies() -> str:
-    rows = pg.list_companies()
-    return "\n".join(f"{r['ticker']}: {r['name']} (FY {', '.join(map(str, r['years'] or []))})" for r in rows) or "(none)"
+    """One line per company. Segment and product names let the planner map a question that names only a
+    segment ("More Personal Computing") to its company; without them it guessed AAPL and searched only Apple."""
+    names = _segments_and_products()
+    lines = []
+    for r in pg.list_companies():
+        line = f"{r['ticker']}: {r['name']} (FY {', '.join(map(str, r['years'] or []))})"
+        segs, prods = names.get(r["ticker"], ([], []))
+        if segs:
+            line += f"; segments: {', '.join(segs)}"
+        if prods:
+            line += f"; products: {', '.join(prods)}"
+        lines.append(line)
+    return "\n".join(lines) or "(none)"
+
+
+def _segments_and_products() -> dict[str, tuple[list[str], list[str]]]:
+    """ticker -> (segment names, product names) from the knowledge graph; {} if the graph is unavailable."""
+    try:
+        rows = query_graph("MATCH (c:Company) "
+                           "OPTIONAL MATCH (c)-[:HAS_SEGMENT]->(s:Segment) "
+                           "OPTIONAL MATCH (c)-[:OFFERS]->(p:Product) "
+                           "RETURN c.ticker AS ticker, collect(DISTINCT s.name) AS segs, collect(DISTINCT p.name) AS prods")
+    except Exception:
+        return {}
+    return {r["ticker"]: (sorted(r["segs"]), sorted(r["prods"])) for r in rows}
 
 
 # the answer itself says the filings don't contain the requested information
@@ -182,8 +205,10 @@ def not_in_sources_match(text: str) -> str:
     """The sentence in which the answer says the filings lack something, or "" if none."""
     clean = re.sub(r"[*_`]", "", text)  # "**no mention** of" -> "no mention of"
     m = _NOT_IN_SOURCES.search(clean)
-    if not m:
-        return ""
+    return _sentence_around(clean, m) if m else ""
+
+
+def _sentence_around(clean: str, m: re.Match) -> str:
     bounds = [b.end() for b in _SENTENCE_END.finditer(clean)]  # "." followed by space, so "$31.07" stays whole
     start = max([b for b in bounds if b <= m.start()], default=0)
     end = min([b for b in bounds if b > m.end()], default=len(clean))
@@ -192,6 +217,24 @@ def not_in_sources_match(text: str) -> str:
 
 def says_not_in_sources(text: str) -> bool:
     return bool(not_in_sources_match(text))
+
+
+_CONCESSIVE = re.compile(r"(while|although|though|even though|even if)\b", re.I)
+
+
+def lead_not_in_sources_match(text: str) -> str:
+    """Like not_in_sources_match, but only where the answer's opening says the requested information is
+    missing - what makes an answer 'partial'. Skipped: hedges later in the body, and concessive clauses
+    followed by an answer ("While the 10-K does not list company names, it identifies these partners: ...").
+    """
+    clean = re.sub(r"[*_`]", "", text).strip()
+    lead = re.split(r"\n\s*\n", clean, maxsplit=1)[0]
+    for m in _NOT_IN_SOURCES.finditer(lead):
+        sentence = _sentence_around(lead, m)
+        if _CONCESSIVE.match(sentence) and "," in sentence[sentence.find(m.group(0)):]:
+            continue
+        return sentence
+    return ""
 
 
 def describe_companies_short() -> str:
