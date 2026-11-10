@@ -87,7 +87,9 @@ class SecQAProgram(dspy.Module):
         super().__init__()
         self.analyze = dspy.Predict(AnalyzeQuestion)
         self.cypher = dspy.Predict(GenerateCypher)
-        self.answer = dspy.Predict(AnswerQuestion)
+        # ChainOfThought adds a hidden `reasoning` output before `answer`: with qwen's thinking off, the model
+        # otherwise works things out in the answer itself (e.g. states a ranking, computes, then "corrects" it)
+        self.answer = dspy.ChainOfThought(AnswerQuestion)
         self.assess = dspy.Predict(AssessAnswer)
 
 

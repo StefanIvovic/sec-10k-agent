@@ -58,6 +58,7 @@ class AgentState(TypedDict, total=False):
     sources_text: str
     citation_map: dict
     answer: str
+    answer_reasoning: str        # ChainOfThought scratchpad of the answer step; traces only
     assessment: dict
     refinements: int
     status: str                  # answered | partial | not_found (set by finalize)
@@ -125,8 +126,10 @@ def build_graph(program: SecQAProgram | None = None):
     def answer(state: AgentState) -> dict:
         t0 = time.time()
         text, cmap = tools.format_sources(state.get("hits", []), state.get("facts", []), state.get("graph_rows", []))
-        a = program.answer(question=state["question"], sources=text).answer
-        return {"answer": a, "sources_text": text, "citation_map": cmap, **_step("answer", t0)}
+        p = program.answer(question=state["question"], sources=text)
+        # reasoning is the hidden scratchpad: kept in the state / MLflow trace, never shown to the user
+        return {"answer": p.answer, "answer_reasoning": p.reasoning, "sources_text": text, "citation_map": cmap,
+                **_step("answer", t0)}
 
     def assess(state: AgentState) -> dict:
         t0 = time.time()
