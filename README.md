@@ -30,6 +30,8 @@ cp .env.example .env                  # Windows: copy .env.example .env
 
 In `.env`, set `SEC_USER_AGENT` to your name and email (the SEC requires it) and choose the chat model (below).
 
+Using Claude Code or Codex? The agent instructions are in [AGENTS.md](AGENTS.md).
+
 Download the models in LM Studio:
 
 ```bash
