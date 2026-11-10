@@ -51,7 +51,9 @@ def resolve_company(ticker: str) -> dict:
         raise ValueError(f"Unknown ticker: {ticker}") from None
 
 
-def list_10k_filings(cik: str, limit: int = 3, include_amendments: bool = False) -> list[dict]:
+def list_10k_filings(cik: str, limit: int = 3, include_amendments: bool = False,
+                     fiscal_years: list[int] | None = None) -> list[dict]:
+    """Latest `limit` 10-Ks, newest first; with fiscal_years, only those years (limit is ignored)."""
     sub = _get(f"https://data.sec.gov/submissions/CIK{cik}.json").json()
     recent = sub["filings"]["recent"]
     forms = {"10-K", "10-K/A"} if include_amendments else {"10-K"}
@@ -61,6 +63,8 @@ def list_10k_filings(cik: str, limit: int = 3, include_amendments: bool = False)
             continue
         acc = recent["accessionNumber"][i]
         report = recent["reportDate"][i] or recent["filingDate"][i]
+        if fiscal_years and _d(report).year not in fiscal_years:
+            continue
         out.append({
             "accession": acc,
             "cik": cik,
@@ -71,7 +75,7 @@ def list_10k_filings(cik: str, limit: int = 3, include_amendments: bool = False)
             "url": (f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/"
                     f"{acc.replace('-', '')}/{recent['primaryDocument'][i]}"),
         })
-        if len(out) >= limit:
+        if not fiscal_years and len(out) >= limit:
             break
     return out
 

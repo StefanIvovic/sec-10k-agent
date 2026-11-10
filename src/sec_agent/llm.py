@@ -1,4 +1,4 @@
-"""LLM / embedding clients. Everything points at LM Studio's OpenAI-compatible API."""
+"""LLM / embedding clients. Chat: LM Studio, OpenAI or Anthropic (LLM_PROVIDER); embeddings: bge-m3 in LM Studio."""
 import logging
 import os
 import shutil
@@ -53,7 +53,7 @@ def ensure_embed_model_loaded() -> str:
     if not s.embed_autoload:
         return "skipped (EMBED_AUTOLOAD=false)"
     try:
-        models = httpx.get(f"{s.llm_base_url.rsplit('/v1', 1)[0]}/api/v0/models", timeout=5).json()["data"]
+        models = httpx.get(f"{s.embed_base_url.rsplit('/v1', 1)[0]}/api/v0/models", timeout=5).json()["data"]
     except Exception as e:
         return f"LM Studio not reachable: {e}"
     if any(m["id"] == s.embed_model and m.get("state") == "loaded" for m in models):
@@ -79,21 +79,35 @@ class SerializedLM(dspy.LM):
 def configure_dspy() -> dspy.LM:
     global _configured
     s = get_settings()
-    # top_k / min_p / repeat_penalty are LM Studio extensions to the OpenAI API -> extra_body
-    extra_body = {"top_k": s.llm_top_k, "min_p": s.llm_min_p, "repeat_penalty": s.llm_repeat_penalty}
-    if s.llm_reasoning_effort:
-        # LM Studio honors reasoning_effort="none" for qwen3.8 (enable_thinking / "/no_think" are ignored)
-        extra_body["reasoning_effort"] = s.llm_reasoning_effort
-    lm = SerializedLM(
-        f"openai/{s.llm_model}",
-        api_base=s.llm_base_url,
-        api_key=s.llm_api_key,
-        max_tokens=s.llm_max_tokens,
-        temperature=s.llm_temperature,
-        top_p=s.llm_top_p,
-        cache=False,
-        extra_body=extra_body,
-    )
+    if s.llm_provider == "anthropic":
+        from .anthropic_engine import AnthropicEngine
+        engine = AnthropicEngine(s.llm_model, s.llm_api_key if s.llm_api_key != "lm-studio" else None,
+                                 s.max_tokens, s.llm_effort)
+        lm = dspy.LM(f"anthropic/{s.llm_model}", engine=engine, max_tokens=s.max_tokens, cache=False)
+    elif s.llm_provider == "openai":
+        # model defaults for sampling (reasoning models reject temperature/top_p)
+        extra = {"reasoning_effort": s.llm_effort} if s.llm_effort else {}
+        if s.llm_api_key != "lm-studio":  # else LiteLLM reads OPENAI_API_KEY
+            extra["api_key"] = s.llm_api_key
+        lm = dspy.LM(f"openai/{s.llm_model}", max_tokens=s.max_tokens, cache=False, **extra)
+    elif s.llm_provider == "lmstudio":
+        # top_k / min_p / repeat_penalty are LM Studio extensions to the OpenAI API -> extra_body
+        extra_body = {"top_k": s.llm_top_k, "min_p": s.llm_min_p, "repeat_penalty": s.llm_repeat_penalty}
+        if s.llm_reasoning_effort:
+            # LM Studio honors reasoning_effort="none" for qwen3.8 (enable_thinking / "/no_think" are ignored)
+            extra_body["reasoning_effort"] = s.llm_reasoning_effort
+        lm = SerializedLM(
+            f"openai/{s.llm_model}",
+            api_base=s.llm_base_url,
+            api_key=s.llm_api_key,
+            max_tokens=s.max_tokens,
+            temperature=s.llm_temperature,
+            top_p=s.llm_top_p,
+            cache=False,
+            extra_body=extra_body,
+        )
+    else:
+        raise ValueError(f"LLM_PROVIDER must be lmstudio, openai or anthropic, not {s.llm_provider!r}")
     if not _configured:
         dspy.configure(lm=lm)
         _configured = True
@@ -105,8 +119,8 @@ def get_embedder() -> OpenAILikeEmbedding:
     s = get_settings()
     return OpenAILikeEmbedding(
         model_name=s.embed_model,
-        api_base=s.llm_base_url,
-        api_key=s.llm_api_key,
+        api_base=s.embed_base_url,
+        api_key="lm-studio",
         embed_batch_size=16,
     )
 

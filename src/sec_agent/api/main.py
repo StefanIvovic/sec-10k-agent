@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -91,9 +92,14 @@ def health() -> dict:
     except Exception as e:
         checks["neo4j"] = str(e)
     try:
-        models = httpx.get(f"{s.llm_base_url}/models", timeout=5).json()["data"]
-        checks["llm"] = s.llm_model in {m["id"] for m in models}
-        state = httpx.get(f"{s.llm_base_url.rsplit('/v1', 1)[0]}/api/v0/models", timeout=5).json()["data"]
+        if s.llm_provider == "lmstudio":
+            models = httpx.get(f"{s.llm_base_url}/models", timeout=5).json()["data"]
+            checks["llm"] = s.llm_model in {m["id"] for m in models}
+        else:  # cloud provider: only check that a key is configured
+            key = s.llm_api_key if s.llm_api_key != "lm-studio" else os.environ.get(
+                "ANTHROPIC_API_KEY" if s.llm_provider == "anthropic" else "OPENAI_API_KEY")
+            checks["llm"] = bool(key) or f"no API key for {s.llm_provider}"
+        state = httpx.get(f"{s.embed_base_url.rsplit('/v1', 1)[0]}/api/v0/models", timeout=5).json()["data"]
         # must be loaded already: a JIT load would land on the GPU and evict the chat model
         checks["embed_model_loaded"] = any(m["id"] == s.embed_model and m.get("state") == "loaded" for m in state)
     except Exception as e:

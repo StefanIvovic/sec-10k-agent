@@ -3,7 +3,7 @@ name: sec-agent
 services:
   # ParadeDB = PostgreSQL + pgvector + pg_search (BM25)
   postgres:
-    image: paradedb/paradedb:latest
+    image: paradedb/paradedb:0.26.5-pg18
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sec}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sec}
@@ -19,7 +19,7 @@ services:
       retries: 20
 
   neo4j:
-    image: neo4j:5-community
+    image: neo4j:5.26.32-community
     environment:
       NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-sec-agent-pw}
       NEO4J_PLUGINS: '["apoc"]'
@@ -42,7 +42,7 @@ services:
       - mlflow_data:/mlflow
 
   prefect:
-    image: prefecthq/prefect:3-latest
+    image: prefecthq/prefect:3.9.2-python3.12
     command: prefect server start --host 0.0.0.0
     environment:
       PREFECT_UI_API_URL: http://localhost:4200/api

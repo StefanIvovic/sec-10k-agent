@@ -1,6 +1,6 @@
 """Prefect flows: EDGAR -> parse -> chunk/embed (LlamaIndex) -> Postgres, entities -> Neo4j, XBRL -> Postgres.
 
-Run once:      python -m sec_agent.ingest.flows AAPL MSFT NVDA --filings 2
+Run once:      python -m sec_agent.ingest.flows AAPL MSFT NVDA --fiscal-year 2026   (or --filings 2: latest two)
 Serve:         python -m sec_agent.ingest.flows --serve      (deployment + weekly refresh schedule)
 """
 from __future__ import annotations
@@ -26,10 +26,10 @@ SKIP_ITEMS = {"6", "16"}  # [Reserved], 10-K Summary
 
 
 @task(retries=3, retry_delay_seconds=10, cache_policy=NO_CACHE)
-def resolve_and_list(ticker: str, n_filings: int) -> tuple[dict, list[dict]]:
+def resolve_and_list(ticker: str, n_filings: int, fiscal_years: list[int] | None = None) -> tuple[dict, list[dict]]:
     company = edgar.resolve_company(ticker)
     pg.upsert_company(company["cik"], company["ticker"], company["name"])
-    filings = edgar.list_10k_filings(company["cik"], limit=n_filings)
+    filings = edgar.list_10k_filings(company["cik"], limit=n_filings, fiscal_years=fiscal_years)
     for f in filings:
         pg.upsert_filing(f)
     return company, filings
@@ -95,9 +95,10 @@ def load_financial_facts(company: dict) -> int:
 
 
 @flow(name="ingest-company", log_prints=True)
-def ingest_company(ticker: str, n_filings: int = 2, force: bool = False, with_graph: bool = True) -> dict:
+def ingest_company(ticker: str, n_filings: int = 2, force: bool = False, with_graph: bool = True,
+                   fiscal_years: list[int] | None = None) -> dict:
     graph.ensure_constraints()
-    company, filings = resolve_and_list(ticker.upper(), n_filings)
+    company, filings = resolve_and_list(ticker.upper(), n_filings, fiscal_years)
     load_financial_facts(company)
     report = {"ticker": company["ticker"], "filings": []}
     for f in filings:
@@ -116,9 +117,10 @@ def ingest_company(ticker: str, n_filings: int = 2, force: bool = False, with_gr
 
 
 @flow(name="ingest-companies", log_prints=True)
-def ingest_companies(tickers: list[str], n_filings: int = 2, force: bool = False, with_graph: bool = True) -> list[dict]:
+def ingest_companies(tickers: list[str], n_filings: int = 2, force: bool = False, with_graph: bool = True,
+                     fiscal_years: list[int] | None = None) -> list[dict]:
     get_run_logger().info("embedding model: %s", ensure_embed_model_loaded())
-    return [ingest_company(t, n_filings, force, with_graph) for t in tickers]
+    return [ingest_company(t, n_filings, force, with_graph, fiscal_years) for t in tickers]
 
 
 DEFAULT_WATCHLIST = ["AAPL", "MSFT", "NVDA"]
@@ -126,7 +128,9 @@ DEFAULT_WATCHLIST = ["AAPL", "MSFT", "NVDA"]
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("tickers", nargs="*", default=DEFAULT_WATCHLIST)
-    ap.add_argument("--filings", type=int, default=2)
+    ap.add_argument("--filings", type=int, default=2, help="latest N 10-Ks per company")
+    ap.add_argument("--fiscal-year", type=int, nargs="+", dest="fiscal_years",
+                    help="only these fiscal years (overrides --filings), e.g. --fiscal-year 2026")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--no-graph", action="store_true")
     ap.add_argument("--serve", action="store_true", help="register deployment (weekly refresh) and serve it")
@@ -138,4 +142,4 @@ if __name__ == "__main__":
             parameters={"tickers": a.tickers, "n_filings": a.filings},
         )
     else:
-        print(ingest_companies(a.tickers, a.filings, a.force, not a.no_graph))
+        print(ingest_companies(a.tickers, a.filings, a.force, not a.no_graph, a.fiscal_years))
