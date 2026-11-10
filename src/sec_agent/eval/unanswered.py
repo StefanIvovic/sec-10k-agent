@@ -32,7 +32,9 @@ def main() -> None:
         for t in traces:
             tags = t.info.tags
             found += 1
-            print(f"[{st}] {tags.get('question', '?')}\n    missing: {tags.get('missing', '')[:200]}\n"
+            print(f"[{st}] {tags.get('question', '?')}\n    reason: {tags.get('status_reason', '?')}"
+                  + (f"  matched: {tags['not_in_sources'][:150]}" if tags.get("not_in_sources") else "")
+                  + f"\n    missing: {tags.get('missing', '')[:200]}\n"
                   f"    trace: {t.info.trace_id}  retries: {tags.get('refinements')}")
     print(f"\n{found} trace(s)")
 

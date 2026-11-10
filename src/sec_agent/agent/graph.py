@@ -166,16 +166,24 @@ def build_graph(program: SecQAProgram | None = None):
         a = state["assessment"]
         has_sources = bool(state.get("hits") or state.get("facts") or state.get("graph_rows"))
         draft = state.get("answer", "")
+        # the sentence where the draft says the filings lack something (e.g. "no mention of an office in Serbia")
+        not_in_src = tools.not_in_sources_match(draft)
         if not has_sources or not a["grounded"] or not a["answer_found"]:
             status, final = "not_found", NOT_FOUND_MESSAGE + f"\n\nIndexed filings: {tools.describe_companies_short()}"
-        elif not a["complete"] or tools.says_not_in_sources(draft):
-            # also partial when the answer itself says the filings lack something (e.g. "no mention of an
-            # office in Serbia"): truthful, but it must show up in the MLflow review of unanswered questions
+            reasons = [r for r, hit in (("no_sources", not has_sources), ("not_grounded", not a["grounded"]),
+                                        ("no_answer_found", not a["answer_found"])) if hit]
+        elif not a["complete"] or not_in_src:
+            # also partial when the answer itself says the filings lack something: truthful, but it must
+            # show up in the MLflow review of unanswered questions
             status, final = "partial", draft + "\n\n" + PARTIAL_NOTE
+            reasons = [r for r, hit in (("assess_incomplete", not a["complete"]),
+                                        ("says_not_in_sources", bool(not_in_src))) if hit]
         else:
-            status, final = "answered", draft
-        _tag_trace(state["question"], status, a, state.get("refinements", 0))
-        return {"status": status, "answer": final, "draft_answer": draft, **_step("finalize", t0, status=status)}
+            status, final, reasons = "answered", draft, []
+        reason = ",".join(reasons)
+        _tag_trace(state["question"], status, reason, not_in_src, a, state.get("refinements", 0))
+        return {"status": status, "answer": final, "draft_answer": draft,
+                **_step("finalize", t0, status=status, reason=reason or None, not_in_sources=not_in_src or None)}
 
     g = StateGraph(AgentState)
     g.add_node("analyze", analyze)
@@ -205,13 +213,21 @@ PARTIAL_NOTE = ("_Note: part of this question could not be answered from the ing
                 "the answer above covers only what the filings support._")
 
 
-def _tag_trace(question: str, status: str, assessment: dict, refinements: int) -> None:
-    """Tag the MLflow trace so unanswered questions can be found: tags.answer_status = 'not_found'."""
+def _tag_trace(question: str, status: str, reason: str, not_in_sources: str, assessment: dict,
+               refinements: int) -> None:
+    """Tag the MLflow trace so unanswered questions can be found: tags.answer_status = 'not_found'.
+
+    status_reason says which check set the status (comma-separated if several):
+      not_found: no_sources | not_grounded | no_answer_found
+      partial:   assess_incomplete | says_not_in_sources (not_in_sources = the sentence that matched)
+    """
     try:
         import mlflow
 
         mlflow.update_current_trace(tags={
             "answer_status": status,
+            "status_reason": reason,
+            "not_in_sources": not_in_sources[:250],
             "grounded": str(assessment.get("grounded")),
             "complete": str(assessment.get("complete")),
             "refinements": str(refinements),

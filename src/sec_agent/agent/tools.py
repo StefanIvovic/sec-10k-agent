@@ -175,8 +175,23 @@ _NOT_IN_SOURCES = re.compile(
     re.I)
 
 
+_SENTENCE_END = re.compile(r"[.!?](?=\s)|\n")
+
+
+def not_in_sources_match(text: str) -> str:
+    """The sentence in which the answer says the filings lack something, or "" if none."""
+    clean = re.sub(r"[*_`]", "", text)  # "**no mention** of" -> "no mention of"
+    m = _NOT_IN_SOURCES.search(clean)
+    if not m:
+        return ""
+    bounds = [b.end() for b in _SENTENCE_END.finditer(clean)]  # "." followed by space, so "$31.07" stays whole
+    start = max([b for b in bounds if b <= m.start()], default=0)
+    end = min([b for b in bounds if b > m.end()], default=len(clean))
+    return clean[start:end].strip()
+
+
 def says_not_in_sources(text: str) -> bool:
-    return bool(_NOT_IN_SOURCES.search(re.sub(r"[*_`]", "", text)))  # "**no mention** of" -> "no mention of"
+    return bool(not_in_sources_match(text))
 
 
 def describe_companies_short() -> str:
