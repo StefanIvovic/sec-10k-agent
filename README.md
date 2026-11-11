@@ -28,7 +28,13 @@ pip install -e .
 cp .env.example .env                  # Windows: copy .env.example .env
 ```
 
-In `.env`, set `SEC_USER_AGENT` to your name and email (the SEC requires it) and choose the chat model (below).
+In `.env`, set `SEC_USER_AGENT` to your name and email, and choose the chat model (below):
+
+```ini
+SEC_USER_AGENT=Jane Doe jane.doe@example.com
+```
+
+SEC EDGAR blocks requests without a name and contact email in the User-Agent ([SEC: accessing EDGAR data](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data)). No account or key is needed.
 
 Using Claude Code or Codex? The agent instructions are in [AGENTS.md](AGENTS.md).
 
